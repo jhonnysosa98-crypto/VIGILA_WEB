@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OmniGuard CCTV v1.0 - Sistema de Monitoreo Inteligente{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'><circle cx='12' cy='12' r='10'/></svg>">
+</head>
+<body class="dark-theme">
+    <!-- Barra Superior / Header Amigable -->
+    <header class="top-nav">
+        <div class="nav-brand">
+            <div class="brand-icon">
+                <span class="radar-dot pulse"></span>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                </svg>
+            </div>
+            <div class="brand-info">
+                <h1>OmniGuard <span class="brand-badge">v1.0</span></h1>
+                <span class="sub-text">Monitoreo y Video-Vigilancia Inteligente</span>
+            </div>
+        </div>
+
+        <nav class="nav-links">
+            <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                <span>En Vivo</span>
+            </a>
+            <a href="/playback" class="nav-item {% if request.path == '/playback' %}active{% endif %}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Grabaciones</span>
+            </a>
+            <a href="/settings" class="nav-item {% if request.path == '/settings' %}active{% endif %}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>Ajustes</span>
+            </a>
+        </nav>
+
+        <div class="nav-system-stats">
+            <!-- Botón Conectar Celular (QR) -->
+            <button class="btn-qr-mobile" onclick="openQrModal()" title="Escanear QR para abrir en tu celular">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                <span>📱 Conectar Celular</span>
+            </button>
+
+            <div class="stat-pill online-pill" title="Cámaras Transmitiendo">
+                <span class="status-indicator-dot"></span>
+                <span id="stat-cameras" class="stat-val">0/0 Cams</span>
+            </div>
+            <div class="clock-display" id="clock-display">00:00:00</div>
+        </div>
+    </header>
+
+    <!-- Contenido dinámico -->
+    <main class="main-wrapper">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Modal para Conectar Celular con Código QR -->
+    <div id="qr-modal" class="modal-backdrop d-none">
+        <div class="modal-content modal-md">
+            <div class="modal-header">
+                <div class="modal-title-box">
+                    <h3>📱 Conectar Celular al Sistema</h3>
+                    <span class="text-xs text-muted">Acceso directo sin instalar aplicaciones</span>
+                </div>
+                <button class="btn-close" onclick="closeQrModal()">&times;</button>
+            </div>
+            <div class="qr-modal-body">
+                <!-- Tarjeta con el Código QR generado 100% local y offline -->
+                <div class="qr-card-container" id="qr-code-wrapper">
+                    <!-- QR real generado en el servidor con la librería qrcode de Python -->
+                    <img id="qr-img"
+                         src="/api/qr_code.png"
+                         alt="Código QR para celular"
+                         style="width:220px;height:220px;border-radius:12px;display:block;">
+                </div>
+
+                <!-- Enlace Directo con botón Copiar -->
+                <div class="qr-url-box">
+                    <span class="qr-url-text" id="mobile-url-display">{{ mobile_url }}</span>
+                    <button class="btn btn-xs btn-primary" onclick="copyMobileUrl()">
+                        <span id="copy-text">Copiar</span>
+                    </button>
+                </div>
+
+                <!-- Instrucciones amigables paso a paso -->
+                <div class="qr-instructions-list">
+                    <div class="qr-instruction-step">
+                        <span class="step-num">1</span>
+                        <span>Asegúrate de que tu celular esté conectado a la <b>misma red Wi-Fi</b> de esta PC.</span>
+                    </div>
+                    <div class="qr-instruction-step">
+                        <span class="step-num">2</span>
+                        <span>Abre la <b>cámara de tu celular</b> y apunta hacia este código QR.</span>
+                    </div>
+                    <div class="qr-instruction-step">
+                        <span class="step-num">3</span>
+                        <span>Toca el enlace emergente en tu celular y <b>¡listo!</b> Estarás viendo tus cámaras en vivo.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeQrModal()">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notificaciones flotantes Toast -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="/static/js/dashboard.js"></script>
+    <script>
+    const MOBILE_URL = "{{ mobile_url }}";
+
+    function openQrModal() {
+        document.getElementById('qr-modal').classList.remove('d-none');
+        // Forzar recarga del QR en caso de que haya cambiado la IP
+        const img = document.getElementById('qr-img');
+        if (img) {
+            img.src = '/api/qr_code.png?' + Date.now();
+        }
+    }
+
+    function closeQrModal() {
+        document.getElementById('qr-modal').classList.add('d-none');
+    }
+
+    function copyMobileUrl() {
+        navigator.clipboard.writeText(MOBILE_URL).then(() => {
+            const copyText = document.getElementById('copy-text');
+            copyText.textContent = "¡Copiado!";
+            setTimeout(() => { copyText.textContent = "Copiar"; }, 2000);
+            showToast("Enlace copiado al portapapeles", "info");
+        });
+    }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

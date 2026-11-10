@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoreo en Vivo - OmniGuard CCTV{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Barra de Herramientas de Control -->
+    <div class="control-bar">
+        <div class="control-group">
+            <span class="control-label">Cuadrícula:</span>
+            <div class="btn-group" id="grid-controls">
+                <button class="btn btn-sm btn-outline active" data-grid="grid-auto" title="Ajuste Automático">Auto</button>
+                <button class="btn btn-sm btn-outline" data-grid="grid-1" title="Vista Única (1x1)">1x1</button>
+                <button class="btn btn-sm btn-outline" data-grid="grid-4" title="Cuadrícula 2x2">2x2</button>
+                <button class="btn btn-sm btn-outline" data-grid="grid-9" title="Cuadrícula 3x3">3x3</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <button class="btn btn-sm btn-primary" id="btn-snapshot-all">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                Captura General
+            </button>
+            <button class="btn btn-sm btn-outline" id="btn-sound-toggle" title="Activar/Silenciar alarma de detección">
+                <span id="sound-icon">🔊</span>
+                <span id="sound-text">Alarma Sonora</span>
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="openQrModal()" title="Escanear Código QR">
+                <span>📱 Código QR</span>
+            </button>
+            <a href="/settings" class="btn btn-sm btn-outline">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Añadir Cámara
+            </a>
+        </div>
+
+        <div class="control-group stats-group">
+            <span class="badge badge-warning" id="today-alerts-badge">Alertas Hoy: <b id="today-alerts-count">0</b></span>
+            <span class="badge badge-info" id="storage-badge">Almacenamiento: <b id="storage-used-mb">0 MB</b></span>
+        </div>
+    </div>
+
+    <!-- Banner Amigable v1.0 -->
+    <div class="welcome-banner">
+        <div class="welcome-info">
+            <span class="welcome-emoji">🛡️</span>
+            <div class="welcome-text">
+                <h4>OmniGuard CCTV - Versión 1.0</h4>
+                <p>Monitoreo inteligente en tiempo real. Conecta tu celular escaneando el código QR para vigilar desde cualquier lugar.</p>
+            </div>
+        </div>
+        <div class="welcome-action">
+            <button class="btn btn-sm btn-primary" onclick="openQrModal()">
+                📱 Ver Código QR
+            </button>
+        </div>
+    </div>
+
+    <!-- Área Principal de Video y Alertas -->
+    <div class="surveillance-layout">
+        <!-- Rejilla de Cámaras de Video -->
+        <div class="camera-grid grid-auto" id="camera-grid">
+            {% for cam in cameras %}
+            <div class="camera-card {% if not cam.is_active %}camera-card-offline{% endif %}" id="card-{{ cam.id }}" data-cam-id="{{ cam.id }}">
+                <div class="camera-card-header">
+                    <div class="cam-title-box">
+                        <span class="cam-source-icon" title="{{ cam.source_type }}">
+                            {% if cam.source_type == 'webcam' %}📷{% elif cam.source_type == 'rtsp' %}🌐{% else %}🖥️{% endif %}
+                        </span>
+                        <h3 class="cam-name">{{ cam.name }}</h3>
+                    </div>
+                    <div class="cam-badges">
+                        <span class="status-badge badge-live" id="live-badge-{{ cam.id }}">EN VIVO</span>
+                        <span class="status-badge badge-rec d-none" id="rec-badge-{{ cam.id }}">REC ●</span>
+                        <span class="status-badge badge-motion d-none" id="motion-badge-{{ cam.id }}">ALERTA</span>
+                    </div>
+                </div>
+
+                <!-- Feed de Video con Carga Rápida Asíncrona (Evita bloqueo en celular) -->
+                <div class="video-wrapper">
+                    {% if cam.is_active %}
+                    <img data-feed="/video_feed/{{ cam.id }}" 
+                         src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='360' viewBox='0 0 640 360'><rect width='100%25' height='100%25' fill='%23111a2e'/><text x='50%25' y='50%25' fill='%236366f1' font-family='sans-serif' font-size='15' text-anchor='middle' dominant-baseline='middle'>Cargando señal de video...</text></svg>"
+                         alt="Feed {{ cam.name }}" 
+                         class="camera-feed-img" 
+                         id="feed-img-{{ cam.id }}" 
+                         onerror="handleFeedError('{{ cam.id }}')">
+                    {% else %}
+                    <div class="camera-offline-msg">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06a4 4 0 1 1-5.56-5.56"></path></svg>
+                        <p>CÁMARA APAGADA</p>
+                        <button class="btn btn-xs btn-primary mt-2" onclick="toggleCameraActive('{{ cam.id }}')">Encender</button>
+                    </div>
+                    {% endif %}
+
+                    <!-- Barra flotante de acciones rápidas sobre el video -->
+                    <div class="video-overlay-actions">
+                        <button class="overlay-btn" title="Tomar Foto Instantánea" onclick="triggerSnapshot('{{ cam.id }}')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        </button>
+                        <button class="overlay-btn btn-record" id="btn-rec-{{ cam.id }}" title="Iniciar/Detener Grabación" onclick="toggleRecording('{{ cam.id }}')">
+                            <span class="rec-dot"></span>
+                        </button>
+                        <button class="overlay-btn" title="Pantalla Completa" onclick="expandCamera('{{ cam.id }}', '{{ cam.name }}')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Barra inferior de la tarjeta -->
+                <div class="camera-card-footer">
+                    <span class="cam-info-stat" id="fps-{{ cam.id }}">FPS: --</span>
+                    <span class="cam-info-stat">Sensibilidad: {{ cam.sensitivity }}%</span>
+                    <div class="footer-actions">
+                        <button class="btn-icon" title="Encender/Apagar" onclick="toggleCameraActive('{{ cam.id }}')">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                        </button>
+                        <a href="/settings" class="btn-icon" title="Ajustes">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if cameras|length == 0 %}
+            <div class="empty-state">
+                <h3>No hay cámaras configuradas</h3>
+                <p>Agrega tu primera cámara física (Webcam, RTSP) o una cámara simulada de demostración.</p>
+                <a href="/settings" class="btn btn-primary mt-3">Configurar Cámara</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Panel Lateral: Centro de Alertas en Tiempo Real -->
+        <aside class="alerts-sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <span class="radar-dot pulse"></span>
+                    <h3>Alertas en Vivo</h3>
+                </div>
+                <span class="badge badge-count" id="live-alert-counter">0</span>
+            </div>
+
+            <div class="alerts-scroll-list" id="live-alerts-list">
+                <div class="no-alerts-placeholder">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    <p>Monitoreo activo. Sin intrusiones recientes.</p>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <a href="/playback" class="btn btn-sm btn-block btn-outline">Ver Historial Completo</a>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<!-- Modal de Vista Ampliada (Pantalla Completa) -->
+<div id="camera-modal" class="modal-backdrop d-none">
+    <div class="modal-content modal-fullscreen">
+        <div class="modal-header">
+            <h3 id="modal-cam-title">Cámara</h3>
+            <button class="btn-close" onclick="closeCameraModal()">&times;</button>
+        </div>
+        <div class="modal-body modal-video-body">
+            <img src="" id="modal-cam-img" class="modal-stream-img" alt="Vista Ampliada">
+        </div>
+    </div>
+</div>
+{% endblock %}

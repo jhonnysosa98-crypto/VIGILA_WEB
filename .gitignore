@@ -1,0 +1,13 @@
+recordings/
+data/*.db
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+venv/
+.venv/
+data/*.db
+proyecto_monitoreo_video.zip

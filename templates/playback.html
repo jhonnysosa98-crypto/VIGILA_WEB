@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Grabaciones & Eventos - OmniGuard CCTV{% endblock %}
+
+{% block content %}
+<div class="playback-container">
+    <div class="page-header">
+        <div class="header-titles">
+            <h2>Galería de Grabaciones y Eventos</h2>
+            <p>Revise capturas de movimiento, grabaciones de video y registros de seguridad.</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-outline" onclick="loadEvents()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                Actualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros de búsqueda -->
+    <div class="filters-card">
+        <div class="filter-item">
+            <label for="filter-camera">Cámara:</label>
+            <select id="filter-camera" class="form-select" onchange="loadEvents()">
+                <option value="">Todas las Cámaras</option>
+                {% for cam in cameras %}
+                <option value="{{ cam.id }}">{{ cam.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <label for="filter-type">Tipo de Evento:</label>
+            <select id="filter-type" class="form-select" onchange="loadEvents()">
+                <option value="">Todos los Tipos</option>
+                <option value="motion">Movimiento Detectado</option>
+                <option value="snapshot">Captura Manual</option>
+                <option value="recording">Grabación de Video</option>
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <label for="filter-limit">Mostrar:</label>
+            <select id="filter-limit" class="form-select" onchange="loadEvents()">
+                <option value="24">24 eventos</option>
+                <option value="48" selected>48 eventos</option>
+                <option value="100">100 eventos</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Rejilla de Eventos -->
+    <div class="events-grid" id="events-gallery">
+        <!-- Renderizado dinámicamente mediante JS -->
+        <div class="loading-spinner">Cargando registros...</div>
+    </div>
+</div>
+
+<!-- Modal para Reproducción de Video o Imagen Grande -->
+<div id="media-modal" class="modal-backdrop d-none">
+    <div class="modal-content modal-media">
+        <div class="modal-header">
+            <div class="modal-title-box">
+                <h3 id="media-modal-title">Detalle del Evento</h3>
+                <span id="media-modal-timestamp" class="text-muted"></span>
+            </div>
+            <button class="btn-close" onclick="closeMediaModal()">&times;</button>
+        </div>
+        <div class="modal-body media-viewer-body" id="media-container">
+            <!-- Imagen o Video insertado por JS -->
+        </div>
+        <div class="modal-footer">
+            <a id="btn-download-media" href="#" download class="btn btn-primary">Descargar Archivo</a>
+            <button class="btn btn-outline" onclick="closeMediaModal()">Cerrar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/playback.js"></script>
+{% endblock %}

@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración de Cámaras - OmniGuard CCTV{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <div class="page-header">
+        <div class="header-titles">
+            <h2>Configuración del Sistema de Vigilancia</h2>
+            <p>Administre cámaras IP, webcams locales, parámetros de detección de movimiento y alertas.</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="openAddCameraModal()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Añadir Nueva Cámara
+            </button>
+        </div>
+    </div>
+
+    <!-- Lista de Cámaras Existentes -->
+    <div class="settings-card">
+        <div class="settings-card-header">
+            <h3>Cámaras Configuradas ({{ cameras|length }})</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Cámara</th>
+                        <th>Tipo / Origen</th>
+                        <th>Detección Movimiento</th>
+                        <th>Sensibilidad</th>
+                        <th>Auto-Grabación</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cam in cameras %}
+                    <tr id="row-{{ cam.id }}">
+                        <td>
+                            <div class="cam-meta">
+                                <strong>{{ cam.name }}</strong>
+                                <span class="text-muted text-xs">ID: {{ cam.id }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge badge-secondary">{{ cam.source_type|upper }}</span>
+                            <span class="text-xs text-muted block">{{ cam.source_url }}</span>
+                        </td>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" {% if cam.motion_enabled %}checked{% endif %} onchange="updateCameraParam('{{ cam.id }}', 'motion_enabled', this.checked ? 1 : 0)">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td>
+                            <div class="range-inline">
+                                <input type="range" min="10" max="90" value="{{ cam.sensitivity }}" class="range-slider" onchange="updateCameraParam('{{ cam.id }}', 'sensitivity', parseInt(this.value))">
+                                <span class="range-val">{{ cam.sensitivity }}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" {% if cam.record_on_motion %}checked{% endif %} onchange="updateCameraParam('{{ cam.id }}', 'record_on_motion', this.checked ? 1 : 0)">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td>
+                            <button class="btn btn-xs {% if cam.is_active %}btn-success{% else %}btn-outline{% endif %}" onclick="toggleCameraActive('{{ cam.id }}')">
+                                {% if cam.is_active %}Activa{% else %}Inactiva{% endif %}
+                            </button>
+                        </td>
+                        <td>
+                            <button class="btn btn-xs btn-danger" onclick="deleteCamera('{{ cam.id }}')">Eliminar</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if cameras|length == 0 %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">No hay cámaras añadidas en el sistema.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Ajustes Globales de Almacenamiento y Notificaciones -->
+    <div class="settings-card mt-4">
+        <div class="settings-card-header">
+            <h3>Parámetros Generales de Detección y Grabación</h3>
+        </div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Duración de Clip de Grabación ante Movimiento (Segundos):</label>
+                <input type="number" id="motion-duration" class="form-control" value="10" min="3" max="60">
+                <span class="text-xs text-muted">Tiempo que grabará automáticamente cuando detecte una intrusión.</span>
+            </div>
+            <div class="form-group">
+                <label>Alarma Sonora en Navegador:</label>
+                <select id="setting-sound" class="form-select">
+                    <option value="true">Activada (Emite señal sonora en intrusión)</option>
+                    <option value="false">Silenciada</option>
+                </select>
+                <span class="text-xs text-muted">Sintetizador de audio en tiempo real al detectar movimiento.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Añadir Cámara -->
+<div id="add-camera-modal" class="modal-backdrop d-none">
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h3>Añadir Nueva Cámara de Video</h3>
+            <button class="btn-close" onclick="closeAddCameraModal()">&times;</button>
+        </div>
+        <form id="form-add-camera" onsubmit="submitAddCamera(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre de la Cámara / Ubicación:</label>
+                    <input type="text" id="add-cam-name" class="form-control" placeholder="Ej. Acceso Principal, Patio, Pasillo" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo de Entrada de Video:</label>
+                    <select id="add-cam-type" class="form-select" onchange="onSourceTypeChange(this.value)">
+                        <option value="webcam">Cámara Web Local / USB (Webcam)</option>
+                        <option value="rtsp">Cámara IP / Flujo RTSP de Red</option>
+                        <option value="synthetic">Cámara Simulada / Demostración Virtual</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="group-source-url">
+                    <label id="label-source-url">Índice del Dispositivo:</label>
+                    <input type="text" id="add-cam-url" class="form-control" value="0" placeholder="0 para webcam integrada, 1 para USB externa" required>
+                    <span class="text-xs text-muted" id="help-source-url">Use 0 para la primera cámara integrada de su computadora.</span>
+                </div>
+
+                <div class="form-group">
+                    <label>Sensibilidad de Detección de Movimiento: <span id="add-sens-val">35%</span></label>
+                    <input type="range" id="add-cam-sens" class="range-slider" min="10" max="90" value="35" oninput="document.getElementById('add-sens-val').innerText = this.value + '%'">
+                </div>
+
+                <div class="form-checkbox">
+                    <label>
+                        <input type="checkbox" id="add-cam-record" checked>
+                        Grabar video automáticamente al detectar intrusión
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">Registrar Cámara</button>
+                <button type="button" class="btn btn-outline" onclick="closeAddCameraModal()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openAddCameraModal() {
+    document.getElementById('add-camera-modal').classList.remove('d-none');
+}
+
+function closeAddCameraModal() {
+    document.getElementById('add-camera-modal').classList.add('d-none');
+}
+
+function onSourceTypeChange(type) {
+    const input = document.getElementById('add-cam-url');
+    const label = document.getElementById('label-source-url');
+    const help = document.getElementById('help-source-url');
+
+    if (type === 'webcam') {
+        label.innerText = "Índice de Cámara:";
+        input.value = "0";
+        help.innerText = "Use 0 para la cámara principal, 1 para una segunda webcam USB.";
+    } else if (type === 'rtsp') {
+        label.innerText = "URL de Flujo RTSP / IP:";
+        input.value = "rtsp://admin:password@192.168.1.100:554/live";
+        help.innerText = "Formato estándar: rtsp://usuario:clave@ip:puerto/canal";
+    } else {
+        label.innerText = "Identificador de Escenario Simulador:";
+        input.value = "synthetic_perimeter";
+        help.innerText = "Genera un stream en tiempo real con simulación de sujetos en movimiento.";
+    }
+}
+
+async function submitAddCamera(e) {
+    e.preventDefault();
+    const name = document.getElementById('add-cam-name').value;
+    const sourceType = document.getElementById('add-cam-type').value;
+    const sourceUrl = document.getElementById('add-cam-url').value;
+    const sensitivity = parseInt(document.getElementById('add-cam-sens').value);
+    const recordOnMotion = document.getElementById('add-cam-record').checked;
+
+    const res = await fetch('/api/cameras', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            name: name,
+            source_type: sourceType,
+            source_url: sourceUrl,
+            sensitivity: sensitivity,
+            record_on_motion: recordOnMotion
+        })
+    });
+
+    if (res.ok) {
+        showToast("Cámara registrada con éxito", "success");
+        setTimeout(() => location.reload(), 600);
+    } else {
+        showToast("Error al guardar la cámara", "error");
+    }
+}
+
+async function updateCameraParam(camId, param, val) {
+    const payload = {};
+    payload[param] = val;
+    await fetch(`/api/cameras/${camId}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    showToast("Parámetro actualizado", "info");
+}
+
+async function deleteCamera(camId) {
+    if (!confirm("¿Está seguro de eliminar esta cámara y sus registros?")) return;
+    const res = await fetch(`/api/cameras/${camId}`, {method: 'DELETE'});
+    if (res.ok) {
+        document.getElementById(`row-${camId}`)?.remove();
+        showToast("Cámara eliminada", "info");
+    }
+}
+</script>
+{% endblock %}
